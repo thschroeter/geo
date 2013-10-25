@@ -1,0 +1,120 @@
+<!DOCTYPE html>
+<html>
+    <head>
+    <meta charset="utf-8">
+    <title>Geo - D3</title>
+    <script src="d3.js"></script>
+    <script src="queue.js"></script>
+    <script src="topojson.js"></script>
+    </head>
+    <body>
+    <style>
+
+    body {
+      font-family: "Helvetica Neue", Helvetica, Arial, sans-serif;
+    }
+    h1 {
+      font-size: 18px;
+    }
+    </style>
+
+    <h1></h1>
+    <script>
+        var width = 960,
+            height = 500;
+
+    var projection = d3.geo.orthographic()
+        .scale(248)
+        .clipAngle(90);
+
+    var canvas = d3.select("body").append("canvas")
+        .attr("width", width)
+        .attr("height", height);
+
+    var c = canvas.node().getContext("2d");
+
+    var path = d3.geo.path()
+        .projection(projection)
+        .context(c);
+
+    var title = d3.select("h1");
+
+    queue()
+        .defer(d3.json, "world-110m.json")
+        .await(ready);
+
+    var geos = [[11.5, 48.1]];
+
+    function ready(error, world, names) {
+
+        var globe = {type: "Sphere"},
+            land = topojson.object(world, world.objects.land),
+            countries = topojson.object(world, world.objects.countries).geometries,
+            borders = topojson.mesh(world, world.objects.countries, function(a, b) { return a.id !== b.id; }),
+            idx = -1,
+            n = countries.length;
+
+        function formatGeo(g) {
+            return ' ['+ idx +'] latitude: '+ Math.floor(g[1]) +', longitude: '+ Math.floor(g[0]);
+        }
+
+        (function transition() {
+            d3.transition()
+                .duration(600)
+                .each("start", function() {
+                    var ng = geos.length
+                    if (idx+1 == ng) { fetchData(); }
+                    idx = (idx + 1) % ng;
+                    title.text(formatGeo(geos[idx]));
+                })
+                .tween("rotate", function() {
+                    var p = geos[idx];
+                    var r = d3.interpolate(projection.rotate(), [-p[0], -p[1]]);
+                    return function(t) {
+                        projection.rotate(r(t));
+                        c.clearRect(0, 0, width, height);
+                        c.fillStyle = "#bbb", c.beginPath(), path(land), c.fill();
+
+                        // plot at most k trace points
+                        for (var i=Math.max(0, idx-100); i < geos.length; i++) {
+                            // don't draw points on the backside
+                            var tp = geos[i];
+                            var d = Math.abs(tp[0] - p[0]);
+                            if (d < 90.0) {
+                                var pp = projection(tp);
+                                c.fillStyle = "#FF4500", c.beginPath(), c.arc(pp[0], pp[1], 2.5, 0, 2 * Math.PI), c.fill();
+                            }
+                            if (i == idx) break;
+                        }
+
+                        c.strokeStyle = "#fff", c.lineWidth = .5, c.beginPath(), path(borders), c.stroke();
+                        c.strokeStyle = "#000", c.lineWidth = 2, c.beginPath(), path(globe), c.stroke();
+                    };
+                })
+                .transition()
+                .each("end", transition);
+            })();
+
+    }
+    function fetchData() {
+        d3.json('/geopoints', function(d) {
+            var xs = [];
+            for (var idx in d) {
+                var x = d[idx];
+                xs.push([x.longitude, x.latitude]);
+            }
+            geos = xs; 
+        });
+    }
+    </script>
+    <!--
+    <div style="margin-top: 50px; width: 350px;">
+        Geopoints, in <a href="http://en.wikipedia.org/wiki/Z-order_curve">Morton order</a>
+        with <a href="http://en.wikipedia.org/wiki/Orthographic_projection">orthographic projection</a>. Using
+        <a href="http://d3js.org/">d3</a> and <a href="https://github.com/mbostock/topojson">topojson</a>.
+    </div>
+    -->
+</body>
+
+</html>
+
