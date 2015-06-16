@@ -1,12 +1,13 @@
+import sbtassembly.Plugin._
+import AssemblyKeys._
 import sbt._
 import sbt.Keys._
 
 object PipelineBuild extends Build {
-  
   lazy val geo = Project(
     id = "geo",
     base = file("."),
-    settings = Project.defaultSettings ++ Seq(
+    settings = assemblySettings ++ Project.defaultSettings ++ Seq(
       name := "geo",
       organization := "info.thschroeter",
       version := "0.1",
